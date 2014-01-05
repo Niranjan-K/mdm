@@ -6,7 +6,8 @@ var dashboard = (function () {
     var log = new Log();
     var db;
     var common = require("/modules/common.js");
-    
+    var sqlscripts = require("/resources/mysqlscripts.js");
+
     var module = function (dbs) {
         db = dbs;
         //mergeRecursive(configs, conf);
@@ -32,57 +33,56 @@ var dashboard = (function () {
     // prototype
     module.prototype = {
         constructor: module,
-        
-        getDeviceCountByOS: function(ctx){      	 	 
-          	var tenantID = common.getTenantID();
-          	var finalResult = db.query("SELECT platforms.type_name as label, ROUND((count(devices.id)/(select count(id) from devices))*100,0) as data from platforms, devices where devices.platform_id = platforms.id AND devices.tenant_id = ? group by type", tenantID);
-                       
-            
-            
+
+        getDeviceCountByOS: function(ctx){
+            var tenantID = common.getTenantID();
+            var finalResult = db.query(sqlscripts.platforms.select7, tenantID);
+
+
+
             if(finalResult.length == 0){
-            	finalResult =  [{"label" : "No Data", "data" : 100}];
+                finalResult =  [{"label" : "No Data", "data" : 100}];
             }
-            
+
             return finalResult;
-            
-            
-               
+
+
+
         },
-        
-        
-        
+
+
+
         getDeviceCountByOwnership: function(ctx){
             var tenantID = common.getTenantID();
-            var allDeviceCount = db.query("select count(id) as count from devices where tenant_id = ?", tenantID);
-	        var allByodCount = db.query("select count(id) as count from devices where byod=1 AND tenant_id = ?", tenantID);
-	        var finalResult =  [{"label" : "Personal", "data" : allByodCount[0].count}, {"label" : "Corporate", "data" : allDeviceCount[0].count - allByodCount[0].count}];   
-            
-                       
-             if(finalResult.length == 0){
-            	finalResult =  [{"label" : "No Data", "data" : 100}];
+            var allDeviceCount = db.query(sqlscripts.devices.select10, tenantID);
+            var allByodCount = db.query(sqlscripts.devices.select11, tenantID);
+            var finalResult =  [{"label" : "Personal", "data" : allByodCount[0].count}, {"label" : "Corporate", "data" : allDeviceCount[0].count - allByodCount[0].count}];
+
+
+            if(finalResult.length == 0){
+                finalResult =  [{"label" : "No Data", "data" : 100}];
             }
-            
-            return finalResult;            
-      
+
+            return finalResult;
+
         },
-        
-        
-        
-        
-         getAndroidDeviceCountByOwnership: function(ctx){
+
+
+
+
+        getAndroidDeviceCountByOwnership: function(ctx){
             var tenantID = common.getTenantID();
-            var allDeviceCount = db.query("select count(id) as count from devices where tenant_id = ?", tenantID);
-	        var allByodCount = db.query("select count(id) as count from devices where byod=1 AND tenant_id = ?", tenantID);
-	        var finalResult =  [{"label" : "Personal", "data" : allByodCount[0].count}, {"label" : "Corporate", "data" : allDeviceCount[0].count - allByodCount[0].count}];   
-            return finalResult;            
-      
+            var allDeviceCount = db.query(sqlscripts.devices.select10, tenantID);
+            var allByodCount = db.query(sqlscripts.devices.select11, tenantID);
+            var finalResult =  [{"label" : "Personal", "data" : allByodCount[0].count}, {"label" : "Corporate", "data" : allDeviceCount[0].count - allByodCount[0].count}];
+            return finalResult;
+
         }
-        
-        
-        
-        
-        
+
+
+
+
+
     };
     return module;
 })();
-

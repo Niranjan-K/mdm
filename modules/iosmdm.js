@@ -1,73 +1,74 @@
 var iosmdm = (function() {
 
-	var log = new Log();
-	var deviceModule = require('/modules/device.js').device;
-	var db = application.get('db');
-	var device = new deviceModule(db);
-	var common = require("/modules/common.js");
-	var notificationModule = require('/modules/notification.js').notification;
-	var notification = new notificationModule(db);
+    var log = new Log();
+    var deviceModule = require('/modules/device.js').device;
+    var db = application.get('db');
+    var device = new deviceModule(db);
+    var sqlscripts = require("/resources/mysqlscripts.js");
+    var common = require("/modules/common.js");
+    var notificationModule = require('/modules/notification.js').notification;
+    var notification = new notificationModule(db);
     var userModule = require('user.js').user;
     var user = '';
 
-	var module = function() {
+    var module = function() {
         user = new userModule(db);
-	};
+    };
 
-	function mergeRecursive(obj1, obj2) {
-		for (var p in obj2) {
-			try {
-				// Property in destination object set; update its value.
-				if (obj2[p].constructor == Object) {
-					obj1[p] = MergeRecursive(obj1[p], obj2[p]);
-				} else {
-					obj1[p] = obj2[p];
-				}
-			} catch (e) {
-				// Property in destination object not set; create it and set its value.
-				obj1[p] = obj2[p];
-			}
-		}
-		return obj1;
-	}
+    function mergeRecursive(obj1, obj2) {
+        for (var p in obj2) {
+            try {
+                // Property in destination object set; update its value.
+                if (obj2[p].constructor == Object) {
+                    obj1[p] = MergeRecursive(obj1[p], obj2[p]);
+                } else {
+                    obj1[p] = obj2[p];
+                }
+            } catch (e) {
+                // Property in destination object not set; create it and set its value.
+                obj1[p] = obj2[p];
+            }
+        }
+        return obj1;
+    }
 
 
-	module.prototype = {
-		constructor : module,
-		getCA : function() {
-			try {
-				var keystoreReader = new Packages.com.wso2mobile.ios.mdm.impl.KeystoreReader();
-				var caCertificate = keystoreReader.getCACertificate();
-				return caCertificate.getEncoded();
-			} catch (e) {
-				log.error(e);
-			}
+    module.prototype = {
+        constructor : module,
+        getCA : function() {
+            try {
+                var keystoreReader = new Packages.com.wso2mobile.ios.mdm.impl.KeystoreReader();
+                var caCertificate = keystoreReader.getCACertificate();
+                return caCertificate.getEncoded();
+            } catch (e) {
+                log.error(e);
+            }
 
-			return null;
-		},
-		generateMobileConfigurations : function(token) {
-			try {
+            return null;
+        },
+        generateMobileConfigurations : function(token) {
+            try {
 
                 //Get Tenant from the Token (which is the username)
                 var tenantName = user.getTenantNameByUser(token);
 
-				var plistGenerator = new Packages.com.wso2mobile.ios.mdm.plist.PlistGenerator();
+                var plistGenerator = new Packages.com.wso2mobile.ios.mdm.plist.PlistGenerator();
                 var result = plistGenerator.generateMobileConfigurations(token, tenantName);
-				var data = result.getBytes();
+                var data = result.getBytes();
 
-				var pkcsSigner = new Packages.com.wso2mobile.ios.mdm.impl.PKCSSigner();
-				var signedData = pkcsSigner.getSignedData(data);
+                var pkcsSigner = new Packages.com.wso2mobile.ios.mdm.impl.PKCSSigner();
+                var signedData = pkcsSigner.getSignedData(data);
 
-				return signedData;
-			} catch (e) {
-				log.error(e);
-			}
+                return signedData;
+            } catch (e) {
+                log.error(e);
+            }
 
-			return null;
-		},
-		handleProfileRequest : function(inputStream) {
+            return null;
+        },
+        handleProfileRequest : function(inputStream) {
 
-			try {
+            try {
 
                 var commonUtil =  new Packages.com.wso2mobile.ios.mdm.util.CommonUtil();
                 var profileResponse = commonUtil.copyInputStream(inputStream);
@@ -75,137 +76,137 @@ var iosmdm = (function() {
                 log.debug("profileResponse.challengeToken >>>>>>>>>> " + profileResponse.challengeToken);
 
                 if (profileResponse.challengeToken != null) {
-                    db.query("UPDATE device_pending SET udid = ? WHERE token = ?", profileResponse.udid, profileResponse.challengeToken);
+                    db.query(sqlscripts.device_pending.update5, profileResponse.udid, profileResponse.challengeToken);
                 }
-                var devices = db.query("SELECT tenant_id FROM device_pending WHERE udid = ?", profileResponse.udid);
+                var devices = db.query(sqlscripts.device_pending.select6, profileResponse.udid);
                 log.debug("device.tenant_id >>>>>>>>>> " + devices[0].tenant_id);
 
                 var tenantName = user.getTenantNameFromID(devices[0].tenant_id);
 
-				var requestHandler = new Packages.com.wso2mobile.ios.mdm.impl.RequestHandler();
-				var signedData = requestHandler.handleProfileRequest(profileResponse.inputStream, tenantName);
+                var requestHandler = new Packages.com.wso2mobile.ios.mdm.impl.RequestHandler();
+                var signedData = requestHandler.handleProfileRequest(profileResponse.inputStream, tenantName);
 
-				return signedData;
-			} catch (e) {
-				log.error(e);
-			}
+                return signedData;
+            } catch (e) {
+                log.error(e);
+            }
 
-			return null;
-		},
-		getCACert : function(caPath, raPath) {
+            return null;
+        },
+        getCACert : function(caPath, raPath) {
 
-			try {
-				var requestHandler = new Packages.com.wso2mobile.ios.mdm.impl.RequestHandler();
-				var scepResponse = requestHandler.handleGetCACert();
+            try {
+                var requestHandler = new Packages.com.wso2mobile.ios.mdm.impl.RequestHandler();
+                var scepResponse = requestHandler.handleGetCACert();
 
-				return scepResponse;
-			} catch (e) {
-				log.error(e);
-			}
+                return scepResponse;
+            } catch (e) {
+                log.error(e);
+            }
 
-			return null;
-		},
-		getCACaps : function() {
+            return null;
+        },
+        getCACaps : function() {
 
-			var postBodyCACaps = "POSTPKIOperation\nSHA-1\nDES3\n";
-			var strPostBodyCACaps = new Packages.java.lang.String(postBodyCACaps);
+            var postBodyCACaps = "POSTPKIOperation\nSHA-1\nDES3\n";
+            var strPostBodyCACaps = new Packages.java.lang.String(postBodyCACaps);
 
-			return strPostBodyCACaps.getBytes();
+            return strPostBodyCACaps.getBytes();
 
-		},
-		getPKIMessage : function(inputStream) {
+        },
+        getPKIMessage : function(inputStream) {
 
-			try {
-				var certGenerator = new Packages.com.wso2mobile.ios.mdm.impl.CertificateGenerator();
-				var pkiMessage = certGenerator.getPKIMessage(inputStream);
+            try {
+                var certGenerator = new Packages.com.wso2mobile.ios.mdm.impl.CertificateGenerator();
+                var pkiMessage = certGenerator.getPKIMessage(inputStream);
 
-				return pkiMessage;
-			} catch (e) {
-				log.error(e);
-			}
+                return pkiMessage;
+            } catch (e) {
+                log.error(e);
+            }
 
-		},
-		extractDeviceTokens : function(inputStream) {
+        },
+        extractDeviceTokens : function(inputStream) {
 
-			var writer = new Packages.java.io.StringWriter();
-			Packages.org.apache.commons.io.IOUtils.copy(inputStream, writer, "UTF-8");
-			var contentString = writer.toString();
+            var writer = new Packages.java.io.StringWriter();
+            Packages.org.apache.commons.io.IOUtils.copy(inputStream, writer, "UTF-8");
+            var contentString = writer.toString();
 
-			try {
-				var plistExtractor = new Packages.com.wso2mobile.ios.mdm.plist.PlistExtractor();
-				var checkinMessageType = plistExtractor.extractTokens(contentString);
+            try {
+                var plistExtractor = new Packages.com.wso2mobile.ios.mdm.plist.PlistExtractor();
+                var checkinMessageType = plistExtractor.extractTokens(contentString);
 
                 log.debug("CheckinMessageType >>>>>>>>>>>>>>>>>>>>>> " + checkinMessageType.getMessageType());
 
-				if (checkinMessageType.getMessageType() == "CheckOut") {
-					var ctx = {};
-					ctx.udid = checkinMessageType.getUdid();
-					device.unRegisterIOS(ctx);
-				} else if (checkinMessageType.getMessageType() == "TokenUpdate") {
-					var tokenProperties = {};
-					tokenProperties["token"] = checkinMessageType.getToken();
-					tokenProperties["unlockToken"] = checkinMessageType.getUnlockToken();
-					tokenProperties["magicToken"] = checkinMessageType.getPushMagic();
-					tokenProperties["deviceid"] = checkinMessageType.getUdid();
+                if (checkinMessageType.getMessageType() == "CheckOut") {
+                    var ctx = {};
+                    ctx.udid = checkinMessageType.getUdid();
+                    device.unRegisterIOS(ctx);
+                } else if (checkinMessageType.getMessageType() == "TokenUpdate") {
+                    var tokenProperties = {};
+                    tokenProperties["token"] = checkinMessageType.getToken();
+                    tokenProperties["unlockToken"] = checkinMessageType.getUnlockToken();
+                    tokenProperties["magicToken"] = checkinMessageType.getPushMagic();
+                    tokenProperties["deviceid"] = checkinMessageType.getUdid();
 
-					device.updateiOSTokens(tokenProperties);
-				}
-				
-				return checkinMessageType.getMessageType();
+                    device.updateiOSTokens(tokenProperties);
+                }
 
-			} catch (e) {
-				log.error(e);
-			}
-		},
-		sendPushNotifications : function(inputStream) {
+                return checkinMessageType.getMessageType();
 
-			var writer = new Packages.java.io.StringWriter();
-			Packages.org.apache.commons.io.IOUtils.copy(inputStream, writer, "UTF-8");
-			var contentString = writer.toString();
+            } catch (e) {
+                log.error(e);
+            }
+        },
+        sendPushNotifications : function(inputStream) {
 
-			//log.error(contentString);
+            var writer = new Packages.java.io.StringWriter();
+            Packages.org.apache.commons.io.IOUtils.copy(inputStream, writer, "UTF-8");
+            var contentString = writer.toString();
 
-			try {
-				var plistExtractor = new Packages.com.wso2mobile.ios.mdm.plist.PlistExtractor();
-				var apnsStatus = plistExtractor.extractAPNSResponse(contentString);
+            //log.error(contentString);
 
-				var commandUUID = apnsStatus.getCommandUUID();
+            try {
+                var plistExtractor = new Packages.com.wso2mobile.ios.mdm.plist.PlistExtractor();
+                var apnsStatus = plistExtractor.extractAPNSResponse(contentString);
 
-				if (("Acknowledged").equals(apnsStatus.getStatus())) {
-					log.error("Acknowledged >>>>>>>>>>>>>>>>" + apnsStatus.getOperation());
+                var commandUUID = apnsStatus.getCommandUUID();
 
-					var responseData = "";
+                if (("Acknowledged").equals(apnsStatus.getStatus())) {
+                    log.error("Acknowledged >>>>>>>>>>>>>>>>" + apnsStatus.getOperation());
 
-					if ("QueryResponses" == apnsStatus.getOperation()) {
-						responseData = apnsStatus.getResponseData();
-					} else if ("InstalledApplicationList" == apnsStatus.getOperation()) {
-						responseData = apnsStatus.getResponseData();
-					} else if ("ProfileList" == apnsStatus.getOperation()) {
-						responseData = apnsStatus.getResponseData();
-					} else if ("NeedsRedemption" == apnsStatus.getState()) {
-						log.error("NeedsRedemption >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
-						
-						var notifications = db.query("SELECT device_id, message FROM notifications WHERE id = ?", commandUUID);
-						var device_id = notifications[0].device_id;
-						var message = notifications[0].message;
-						message = parse(message);
-						
-						responseData = apnsStatus.getResponseData();
-						var data = {};
-						data.identifier = responseData.identifier;
-						data.redemptionCode = message.redemptionCode;
-						device.sendMessageToIOSDevice({'deviceid':device_id, 'operation': "APPLYREDEMPTIONCODE", 'data': data});
-					}
+                    var responseData = "";
 
-					var ctx = {};
-					ctx.data = responseData;
-					ctx.msgID = commandUUID;
+                    if ("QueryResponses" == apnsStatus.getOperation()) {
+                        responseData = apnsStatus.getResponseData();
+                    } else if ("InstalledApplicationList" == apnsStatus.getOperation()) {
+                        responseData = apnsStatus.getResponseData();
+                    } else if ("ProfileList" == apnsStatus.getOperation()) {
+                        responseData = apnsStatus.getResponseData();
+                    } else if ("NeedsRedemption" == apnsStatus.getState()) {
+                        log.error("NeedsRedemption >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
 
-					var pendingExist = notification.addIosNotification(ctx);
-					
-					ctx = {};
-					ctx.id = commandUUID;
-					notification.discardOldNotifications(ctx);
+                        var notifications = db.query(sqlscripts.notifications.select4, commandUUID);
+                        var device_id = notifications[0].device_id;
+                        var message = notifications[0].message;
+                        message = parse(message);
+
+                        responseData = apnsStatus.getResponseData();
+                        var data = {};
+                        data.identifier = responseData.identifier;
+                        data.redemptionCode = message.redemptionCode;
+                        device.sendMessageToIOSDevice({'deviceid':device_id, 'operation': "APPLYREDEMPTIONCODE", 'data': data});
+                    }
+
+                    var ctx = {};
+                    ctx.data = responseData;
+                    ctx.msgID = commandUUID;
+
+                    var pendingExist = notification.addIosNotification(ctx);
+
+                    ctx = {};
+                    ctx.id = commandUUID;
+                    notification.discardOldNotifications(ctx);
 
 //                    if (pendingExist != true) {
 //                        log.debug("Pending Exist >>>>>>> FALSE");
@@ -213,13 +214,13 @@ var iosmdm = (function() {
 //                    }
 //                    log.debug("Pending Exist >>>>>>> TRUE");
 
-				} else if (("Error").equals(apnsStatus.getStatus())) {
-					log.error("Error " + apnsStatus.getError());
+                } else if (("Error").equals(apnsStatus.getStatus())) {
+                    log.error("Error " + apnsStatus.getError());
 
-					var ctx = {};
-					ctx.error = "Error";
-					ctx.data = apnsStatus.getError();
-					ctx.msgID = commandUUID;
+                    var ctx = {};
+                    ctx.error = "Error";
+                    ctx.data = apnsStatus.getError();
+                    ctx.msgID = commandUUID;
 
                     var pendingExist = notification.addIosNotification(ctx);
 
@@ -228,49 +229,49 @@ var iosmdm = (function() {
 //                        return;
 //                    }
 //                    log.debug("Pending Exist >>>>>>> TRUE");
-				}
+                }
 
-				var ctx = {};
-				ctx.udid = stringify(apnsStatus.getUdid());
-				var operation = device.getPendingOperationsFromDevice(ctx);
+                var ctx = {};
+                ctx.udid = stringify(apnsStatus.getUdid());
+                var operation = device.getPendingOperationsFromDevice(ctx);
 
-				if (operation != null && operation.feature_code.indexOf("-") > 0) {
-					var featureCode = operation.feature_code.split("-")[0];
+                if (operation != null && operation.feature_code.indexOf("-") > 0) {
+                    var featureCode = operation.feature_code.split("-")[0];
                     log.debug("sendPushNotifications >>> Feature Code >>>>>> " + featureCode);
 
-					return common.loadPayload(new Packages.java.lang.String(operation.id), featureCode, operation.message);
-				} else if (operation != null) {
-					return common.loadPayload(new Packages.java.lang.String(operation.id), operation.feature_code, operation.message);
-				}
+                    return common.loadPayload(new Packages.java.lang.String(operation.id), featureCode, operation.message);
+                } else if (operation != null) {
+                    return common.loadPayload(new Packages.java.lang.String(operation.id), operation.feature_code, operation.message);
+                }
 
                 //End of all Notifications pending for the device
                 var datetime =  common.getCurrentDateTime();
-                db.query("UPDATE device_awake JOIN devices ON devices.id = device_awake.device_id SET device_awake.status = 'P', device_awake.processed_date = ? WHERE devices.udid = ? AND device_awake.status = 'S'", datetime, apnsStatus.getUdid());
+                db.query(sqlscripts.device_awake.update4, datetime, apnsStatus.getUdid());
 
                 return null;
 
-			} catch (e) {
-				log.error(e);
-			}
-		},
-		initAPNS : function(deviceToken, magicToken) {
+            } catch (e) {
+                log.error(e);
+            }
+        },
+        initAPNS : function(deviceToken, magicToken) {
 
-			try {
-				var apnsInitiator = new Packages.com.wso2mobile.ios.apns.PushNotificationSender();
+            try {
+                var apnsInitiator = new Packages.com.wso2mobile.ios.apns.PushNotificationSender();
 
-				var userData = new Packages.java.util.ArrayList();
-				var params = new Packages.java.util.HashMap();
-				params.put("devicetoken", deviceToken);
-				params.put("magictoken", magicToken);
-				userData.add(params);
+                var userData = new Packages.java.util.ArrayList();
+                var params = new Packages.java.util.HashMap();
+                params.put("devicetoken", deviceToken);
+                params.put("magictoken", magicToken);
+                userData.add(params);
 
-				apnsInitiator.pushToAPNS(userData);
+                apnsInitiator.pushToAPNS(userData);
 
-			} catch (e) {
-				log.error(e);
-			}
-		}
-	};
+            } catch (e) {
+                log.error(e);
+            }
+        }
+    };
 
-	return module;
+    return module;
 })();

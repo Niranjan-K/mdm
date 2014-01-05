@@ -1,47 +1,47 @@
 <%
-	var iosMdmModule = require('/modules/iosmdm.js').iosmdm;
-	var userModule = require('/modules/user.js').user;
-	var db = application.get('db');
-	var user = new userModule(db);
-	var iosMdm = new iosMdmModule();
-	var log = new Log();
-	 
-	var username = request.getParameter("username");
-	var password = request.getParameter("password");
-    var byod = request.getParameter("byod");
-    var tenantDomain = request.getParameter("tenantDomain").toLowerCase();
-	
-	var ctx = {};
-	ctx.username = username + "@" + tenantDomain;
-	ctx.password = password;
-    ctx.userid = username + "@" + tenantDomain;
-	
-	var objUser = user.authenticate(ctx);
-	
-	if(objUser == null){
-		response.status=401;
-	    print("Authentication Failed");
-	} else {
+var iosMdmModule = require('/modules/iosmdm.js').iosmdm;
+var userModule = require('/modules/user.js').user;
+var db = application.get('db');
+var user = new userModule(db);
+var iosMdm = new iosMdmModule();
+var log = new Log();
+var sqlscripts = require('resources/mysqlscripts.js');
 
-        var tenant = user.getUser(ctx);
-		var data = iosMdm.generateMobileConfigurations(ctx.userid);
+var username = request.getParameter("username");
+var password = request.getParameter("password");
+var byod = request.getParameter("byod");
+var tenantDomain = request.getParameter("tenantDomain").toLowerCase();
 
-		//db.query("INSERT INTO device_pending (user_id, tenant_id, byod, token) VALUES(?, ?, ?, ?)", username, tenant.tenantId, byod, ctx.userid);
-        var recordPresent = db.query("SELECT id FROM device_pending WHERE token = ?", ctx.userid);
-        log.debug(recordPresent);
-        if (recordPresent.length > 0) {
-            db.query("UPDATE device_pending SET user_id = ?, tenant_id= ?, byod = ? WHERE token = ?", username, tenant.tenantId, byod, ctx.userid);
-        } else {
-            db.query("INSERT INTO device_pending (user_id, tenant_id, byod, token) VALUES(?, ?, ?, ?)", username, tenant.tenantId, byod, ctx.userid);
-        }
+var ctx = {};
+ctx.username = username + "@" + tenantDomain;
+ctx.password = password;
+ctx.userid = username + "@" + tenantDomain;
 
-		if(data == null) {
-			response.sendRedirect("mdmerror.jag");
-		}
-	
-		response.contentType = "application/x-apple-aspen-config";
-		var byteArrayInputStream = new Packages.java.io.ByteArrayInputStream(data);
-		print(new Stream(byteArrayInputStream)); 
-	}
-	
+var objUser = user.authenticate(ctx);
+
+if(objUser == null){
+    response.status=401;
+    print("Authentication Failed");
+} else {
+
+    var tenant = user.getUser(ctx);
+    var data = iosMdm.generateMobileConfigurations(ctx.userid);
+
+    var recordPresent = db.query(sqlscripts.device_pending.select1, ctx.userid);
+    log.debug(recordPresent);
+    if (recordPresent.length > 0) {
+        db.query(mysqlscripts.device_pending.update1, username, tenant.tenantId, byod, ctx.userid);
+    } else {
+        db.query(mysqlscripts.device_pending.insert1, username, tenant.tenantId, byod, ctx.userid);
+    }
+
+    if(data == null) {
+        response.sendRedirect("mdmerror.jag");
+    }
+
+    response.contentType = "application/x-apple-aspen-config";
+    var byteArrayInputStream = new Packages.java.io.ByteArrayInputStream(data);
+    print(new Stream(byteArrayInputStream));
+}
+
 %>
